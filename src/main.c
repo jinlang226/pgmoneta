@@ -589,7 +589,7 @@ main(int argc, char** argv)
 
    /* Start all pg_receivewal processes */
    init_receivewals();
-
+   config->compression_type = COMPRESSION_NONE;
    /* Start WAL compression */
    if (config->compression_type != COMPRESSION_NONE)
    {

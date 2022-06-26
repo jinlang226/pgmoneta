@@ -38,6 +38,7 @@
 #include <server.h>
 #include <wal.h>
 #include <utils.h>
+#include <backup_wal.h>
 
 /* system */
 #include <ev.h>
@@ -77,7 +78,7 @@ pgmoneta_wal(int srv, char** argv)
    d = pgmoneta_get_server_wal(srv);
 
    pgmoneta_mkdir(d);
-
+#ifdef pgmoneta_wal_backup
    if (config->servers[srv].valid)
    {
       cmd = pgmoneta_append(cmd, "PGPASSWORD=\"");
@@ -118,6 +119,7 @@ pgmoneta_wal(int srv, char** argv)
       cmd = pgmoneta_append(cmd, d);
 
       pgmoneta_log_info("WAL: %s", config->servers[srv].name);
+      pgmoneta_log_info("CMD: %s", cmd);
 
       config->servers[srv].wal_streaming = true;
       status = system(cmd);
@@ -133,6 +135,8 @@ pgmoneta_wal(int srv, char** argv)
    {
       pgmoneta_log_error("WAL: Server %s is not in a valid configuration", config->servers[srv].name);
    }
+#endif
+   backup_wal_main(srv, config, d);
 
    pgmoneta_memory_destroy();
    pgmoneta_stop_logging();

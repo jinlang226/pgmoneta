@@ -70,6 +70,12 @@ else()
   )
 endif()
 
+SET(PG_BASE "/usr/pgsql-14")
+INCLUDE_DIRECTORIES("${PG_BASE}/include")
+LINK_DIRECTORIES("${PG_BASE}/lib")
+SET("PostgreSQL_LIBRARY_DEBUG" "${PG_BASE}/lib")
+#:FILEPATH=PostgreSQL_LIBRARY_DEBUG-NOTFOUND
+
 #
 # Compile options
 #
@@ -80,6 +86,7 @@ add_compile_options(-D__USE_ISOC11)
 add_compile_options(-D_GNU_SOURCE)
 add_compile_options(-Wno-deprecated)
 add_compile_options(-Wno-deprecated-declarations)
+add_compile_options(-lpq)
 
 set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -Wl,--no-undefined")
 
@@ -164,6 +171,7 @@ add_library(pgmoneta SHARED ${SOURCES})
 set_target_properties(pgmoneta PROPERTIES LINKER_LANGUAGE C VERSION ${VERSION_STRING}
                                SOVERSION ${VERSION_MAJOR})
 target_link_libraries(pgmoneta PUBLIC)
+TARGET_LINK_LIBRARIES(pgmoneta "${PG_BASE}/lib/libpq.so")
 
 install(TARGETS pgmoneta DESTINATION ${CMAKE_INSTALL_LIBDIR}/)
 
@@ -177,7 +185,7 @@ else()
   set_target_properties(pgmoneta-bin PROPERTIES LINKER_LANGUAGE C OUTPUT_NAME pgmoneta POSITION_INDEPENDENT_CODE FALSE)
 endif()
 target_link_libraries(pgmoneta-bin pgmoneta)
-
+TARGET_LINK_LIBRARIES(pgmoneta-bin "${PG_BASE}/lib/libpq.so")
 install(TARGETS pgmoneta-bin DESTINATION ${CMAKE_INSTALL_BINDIR})
 
 #
