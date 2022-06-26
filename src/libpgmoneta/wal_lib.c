@@ -2177,7 +2177,7 @@ backup_wal_main(int srv, struct configuration* config, char* d) {
 	uint32		hi,
 				lo;
     pgmoneta_log_info("start backup wal main");
-    basedir = "/home/kk/GSoC/upload/pgmoneta-plus/backup/primary/wal/";
+	basedir = "/home/pgmoneta/pgmoneta-plus/backup/primary/wal/";
     /*connection_string = 
     dbhost = "localhost";
     dbport = "5432";
