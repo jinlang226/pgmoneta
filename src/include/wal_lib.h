@@ -4,7 +4,7 @@
 extern "C" {
 #endif
 #include <xlogdefs.h>
-#include <walmethods.h>
+#include <wal_method.h>
 /*
  * Called before trying to read more data or when a segment is
  * finished. Return true to stop streaming.

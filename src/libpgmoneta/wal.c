@@ -38,7 +38,7 @@
 #include <server.h>
 #include <wal.h>
 #include <utils.h>
-#include <backup_wal.h>
+#include <wal_lib.h>
 
 /* system */
 #include <ev.h>

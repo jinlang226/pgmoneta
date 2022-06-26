@@ -10,7 +10,7 @@
 #include <security.h>
 #include <server.h>
 #include <wal.h>
-#include <backup_wal.h>
+#include <wal_lib.h>
 #include <utils.h>
 #include <xlogdefs.h>
 #include <dirent.h>
@@ -19,7 +19,7 @@
 #include <assert.h>
 //#include <streamutil.h>
 //#include <xlogdefs.h>
-//#include <walmethods.h>
+//#include <wal_method.h>
 /* system */
 #include <ev.h>
 #include <stdlib.h>

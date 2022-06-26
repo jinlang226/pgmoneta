@@ -1,6 +1,6 @@
 //#include <receivelog.h>
 //#include <streamutil.h>
-#include <walmethods.h>
+#include <wal_method.h>
 #include <unistd.h>
 #include "libpq-fe.h"
 #include <stddef.h>
@@ -22,14 +22,14 @@
 #include<fcntl.h> 
 /*
 #include <wal.h>
-#include <backup_wal.h>
+#include <wal_lib.h>
 #include <utils.h>
 #include <xlogdefs.h>
 //#include <port.h>
 #include <assert.h>
 //#include <streamutil.h>
 //#include <xlogdefs.h>
-//#include <walmethods.h>
+//#include <wal_method.h>
 
 #include <ev.h>
 
