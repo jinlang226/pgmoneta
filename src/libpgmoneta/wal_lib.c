@@ -258,6 +258,7 @@ static XLogRecPtr
 FindStreamingStart(uint32 *tli)
 {
 //#ifdef findstart
+	pgmoneta_log_info("find streaming start tli is: %s", tli);
 	DIR		   *dir;
 	struct dirent *dirent;
 	XLogSegNo	high_segno = 0;
@@ -302,7 +303,7 @@ FindStreamingStart(uint32 *tli)
 		/*
 		 * Looks like an xlog file. Parse its position.
 		 */
-		XLogFromFileName(dirent->d_name, &tli, &segno, WalSegSz);
+		XLogFromFileName(dirent->d_name, &tli, &segno, WalSegSz); //give value to tli
 
 		/*
 		 * Check that the segment has the right size, if it's supposed to be
@@ -1792,7 +1793,6 @@ ReceiveXlogStream(PGconn *conn, StreamCtl *stream)
 
 	while (1)
 	{
-
         /*
 		 * Fetch the timeline history file for this timeline, if we don't have
 		 * it already. When streaming log to tar, this will always return
@@ -2077,15 +2077,17 @@ StreamLog(void)
 	TimeLineID	servertli;
 	StreamCtl	stream;
     
-	memset(&stream, 0, sizeof(stream));
+	memset(&stream, 0, sizeof(stream)); 
+	
+	//check version and system
     
 	/*
 	 * Connect in replication mode to the server
 	 */
-	if (conn == NULL){
-        //conn = GetConnection();
-        pgmoneta_log_error("connection is null");
-    }
+	// if (conn == NULL){
+    //     //conn = GetConnection();
+    //     pgmoneta_log_error("connection is null");
+    // }
 #ifdef panduanconn
 	if (!conn)
 		/* Error message already written in GetConnection() */
@@ -2114,7 +2116,9 @@ StreamLog(void)
 	/*
 	 * Figure out where to start streaming.
 	 */
-	stream.startpos = FindStreamingStart(&stream.timeline);
+	stream.startpos = FindStreamingStart(&stream.timeline); //according to the largest file id, find the last xlog segment to determine the start 
+	//get the destination directory: src/portdirent.c
+	//get file, check partial or not, compress or not
 	if (stream.startpos == InvalidXLogRecPtr)
 	{
 		stream.startpos = serverpos;
@@ -2162,34 +2166,35 @@ StreamLog(void)
 	pg_free(stream.walmethod);
 
 	conn = NULL;
+	
 }
 
 
 int
 backup_wal_main(int srv, struct configuration* config, char* d) {
-    d = pgmoneta_append(d, "waltest/");
-    pgmoneta_log_info("ddddd: %s", d);
-    pgmoneta_mkdir(d);
-
+	// d = pgmoneta_append(d, "waltest/");
+    // pgmoneta_log_info("ddddd: %s", d);
+    // pgmoneta_mkdir(d);
     int			c;
 	int			option_index;
 	char	   *db_name;
 	uint32		hi,
 				lo;
     pgmoneta_log_info("start backup wal main");
-	basedir = "/home/pgmoneta/pgmoneta-plus/backup/primary/wal/";
+	basedir = "/home/pgmoneta/pgmoneta/backup/primary/wal/";
     /*connection_string = 
     dbhost = "localhost";
     dbport = "5432";
     dbuser = "repl";
-
     noloop = 1;
     //--no-password 
     char* pwd = "secretpassword";//hostaddr=127.0.0.1 
     */
-    conn = PQconnectdb("host=localhost port=5432 dbname=mydb user=repl password=secretpassword replication=database");//PQsetdbLogin(dbhost, dbport,NULL,NULL,NULL,dbuser,pwd);
-    
-    /* 检查后端连接是否成功建立 */
+
+
+	conn = PQconnectdb("host=localhost port=5432 dbname=mydb user=repl password=secretpassword replication=database");//PQsetdbLogin(dbhost, dbport,NULL,NULL,NULL,dbuser,pwd);
+
+    //check connection okay
     if (PQstatus(conn) != CONNECTION_OK)
     {
         fprintf(stderr, "Connection to database failed: %s",
@@ -2197,15 +2202,32 @@ backup_wal_main(int srv, struct configuration* config, char* d) {
         exit_nicely(conn);
     }
 
-    pgmoneta_log_info("server connected!");
+	pgmoneta_log_info("conn server connected!");
+	
+	if (conn == NULL){
+        //conn = GetConnection();
+        pgmoneta_log_error("connection is null");
+    }
+	
+	
+	//wjl todo dbname should be postgres
+	auth = pgmoneta_server_authenticate(srv, "mydb", config->users[usr].username, config->users[usr].password, &socket);
+
+	if (auth != AUTH_SUCCESS)
+	{
+    	pgmoneta_log_trace("Invalid credentials for %s", config->users[usr].username);
+    	goto done;
+	}
+
+    pgmoneta_log_info("auth server connected!");
+	//finish todo 
 
     /* determine remote server's xlog segment size 
 	if (!RetrieveWalSegSize(conn))
     */
+
     WalSegSz = DEFAULT_XLOG_SEG_SIZE;
 
-    //StreamLog();
-    
 	while (true)
 	{
 		StreamLog();
@@ -2229,7 +2251,17 @@ backup_wal_main(int srv, struct configuration* config, char* d) {
             sleep(5);
 		}
 	}
-    
+	//return 1;
+done:
 
-    return 1;
+	if (socket != -1)
+	{
+		pgmoneta_disconnect(socket);
+	}
+
+	if (!config->servers[srv].valid)
+	{
+		pgmoneta_log_error("Server %s need wal_level at replica or logical", config->servers[srv].name);
+	}
+
 }
