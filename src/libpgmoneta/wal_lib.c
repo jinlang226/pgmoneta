@@ -2211,7 +2211,7 @@ backup_wal_main(int srv, struct configuration* config, char* d) {
 	
 	
 	//wjl todo dbname should be postgres
-	auth = pgmoneta_server_authenticate(srv, "mydb", config->users[usr].username, config->users[usr].password, &socket);
+	auth = pgmoneta_server_authenticate(srv, "mydb", config->users[usr].username, config->users[usr].password, REPLICATION_PHYSICAL, &socket);
 
 	if (auth != AUTH_SUCCESS)
 	{

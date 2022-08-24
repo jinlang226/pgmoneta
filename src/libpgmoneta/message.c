@@ -524,7 +524,7 @@ pgmoneta_create_ssl_message(struct message** msg)
 }
 
 int
-pgmoneta_create_startup_message(char* username, char* database, struct message** msg, int replication)
+pgmoneta_create_startup_message(char* username, char* database, int replication, struct message** msg)
 {
    struct message* m = NULL;
    size_t size;
@@ -538,11 +538,11 @@ pgmoneta_create_startup_message(char* username, char* database, struct message**
    //size update 
    if (replication == REPLICATION_PHYSICAL)
    {
-      size += 4;
+      size += 11 + 1 + 1 + 1; //the size of replication + 1 (\0\ termination) + 1 (1) + 1 (\0 termination)
    }
    else if (replication == REPLICATION_LOGICAL) 
    {
-      size += 4; //m->data already contains database that logial replication need. Should I elimate the if else statement?
+      size += 11 + 1 + ds + 1; //replication + database
    }
 
    m = (struct message*)malloc(sizeof(struct message));
@@ -562,13 +562,14 @@ pgmoneta_create_startup_message(char* username, char* database, struct message**
    pgmoneta_write_string(m->data + 13 + us + 1 + 9 + ds + 1, "application_name");
    pgmoneta_write_string(m->data + 13 + us + 1 + 9 + ds + 1 + 17, "pgmoneta");
    
+   pgmoneta_write_string(m->data + 13 + us + 1 + 9 + ds + 1 + 17 + 9, "replication"); 
    if (replication == REPLICATION_PHYSICAL)
    {
-      pgmoneta_write_int32(m->data + 4, replication); 
+      pgmoneta_write_int32(m->data + 13 + us + 1 + 9 + ds + 1 + 17 + 9 + 12, replication);   
    }
    else if (replication == REPLICATION_LOGICAL) 
    {
-      pgmoneta_write_int32(m->data + 4, replication); 
+      pgmoneta_write_string(m->data + 13 + us + 1 + 9 + ds + 1 + 17 + 9 + 12, database); 
    }
 
    *msg = m;

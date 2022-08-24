@@ -73,8 +73,7 @@ pgmoneta_server_info(int srv)
       goto done;
    }
 
-   // should I define replication here?
-   auth = pgmoneta_server_authenticate(srv, "postgres", config->users[usr].username, config->users[usr].password, replication, &socket);
+   auth = pgmoneta_server_authenticate(srv, "postgres", config->users[usr].username, config->users[usr].password, REPLICATION_PHYSICAL, &socket);
 
    if (auth != AUTH_SUCCESS)
    {
