@@ -441,7 +441,7 @@ pgmoneta_remote_management_scram_sha256(char* username, char* password, int serv
       }
    }
 
-   status = pgmoneta_create_startup_message(username, "admin", &startup_msg);
+   status = pgmoneta_create_startup_message(username, "admin", &startup_msg, replication);
    if (status != MESSAGE_STATUS_OK)
    {
       goto error;
@@ -1016,7 +1016,7 @@ error:
 }
 
 int
-pgmoneta_server_authenticate(int server, char* database, char* username, char* password, int* fd)
+pgmoneta_server_authenticate(int server, char* database, char* username, char* password, int replication, int* fd)
 {
    int server_fd;
    int auth_type;
@@ -1055,7 +1055,7 @@ pgmoneta_server_authenticate(int server, char* database, char* username, char* p
       goto error;
    }
 
-   ret = pgmoneta_create_startup_message(username, database, &startup_msg);
+   ret = pgmoneta_create_startup_message(username, database, &startup_msg, replication);
    if (ret != MESSAGE_STATUS_OK)
    {
       goto error;

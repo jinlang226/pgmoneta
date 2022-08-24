@@ -260,7 +260,7 @@ pgmoneta_create_ssl_message(struct message** msg);
  * @return 0 upon success, otherwise 1
  */
 int
-pgmoneta_create_startup_message(char* username, char* database, struct message** msg);
+pgmoneta_create_startup_message(char* username, char* database, struct message** msg, int replication);
 
 #ifdef __cplusplus
 }

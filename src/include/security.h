@@ -28,6 +28,9 @@
 
 #ifndef PGMONETA_SECURITY_H
 #define PGMONETA_SECURITY_H
+#define REPLICATION_NONE 0
+#define REPLICATION_PHYSICAL 1
+#define REPLICATION_LOGICAL 2
 
 #ifdef __cplusplus
 extern "C" {
@@ -49,7 +52,7 @@ extern "C" {
  * @return AUTH_SUCCESS, AUTH_BAD_PASSWORD or AUTH_ERROR
  */
 int
-pgmoneta_server_authenticate(int server, char* database, char* username, char* password, int* fd);
+pgmoneta_server_authenticate(int server, char* database, char* username, char* password, int replication, int* fd);
 
 /**
  * Authenticate a remote management user
