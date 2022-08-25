@@ -542,7 +542,7 @@ pgmoneta_create_startup_message(char* username, char* database, int replication,
    }
    else if (replication == REPLICATION_LOGICAL) 
    {
-      size += 11 + 1 + ds + 1; //replication + database
+      size += 11 + 1 + 8 + 1; //replication + database
    }
 
    m = (struct message*)malloc(sizeof(struct message));
@@ -562,14 +562,15 @@ pgmoneta_create_startup_message(char* username, char* database, int replication,
    pgmoneta_write_string(m->data + 13 + us + 1 + 9 + ds + 1, "application_name");
    pgmoneta_write_string(m->data + 13 + us + 1 + 9 + ds + 1 + 17, "pgmoneta");
    
-   pgmoneta_write_string(m->data + 13 + us + 1 + 9 + ds + 1 + 17 + 9, "replication"); 
    if (replication == REPLICATION_PHYSICAL)
    {
+      pgmoneta_write_string(m->data + 13 + us + 1 + 9 + ds + 1 + 17 + 9, "replication"); 
       pgmoneta_write_int32(m->data + 13 + us + 1 + 9 + ds + 1 + 17 + 9 + 12, replication);   
    }
    else if (replication == REPLICATION_LOGICAL) 
    {
-      pgmoneta_write_string(m->data + 13 + us + 1 + 9 + ds + 1 + 17 + 9 + 12, database); 
+      pgmoneta_write_string(m->data + 13 + us + 1 + 9 + ds + 1 + 17 + 9, "replication");  
+      pgmoneta_write_string(m->data + 13 + us + 1 + 9 + ds + 1 + 17 + 9 + 12, "database"); 
    }
 
    *msg = m;

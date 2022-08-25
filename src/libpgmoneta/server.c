@@ -73,7 +73,7 @@ pgmoneta_server_info(int srv)
       goto done;
    }
 
-   auth = pgmoneta_server_authenticate(srv, "postgres", config->users[usr].username, config->users[usr].password, REPLICATION_PHYSICAL, &socket);
+   auth = pgmoneta_server_authenticate(srv, "postgres", config->users[usr].username, config->users[usr].password, REPLICATION_NONE, &socket);
 
    if (auth != AUTH_SUCCESS)
    {

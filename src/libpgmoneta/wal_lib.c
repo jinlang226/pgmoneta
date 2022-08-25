@@ -2209,9 +2209,7 @@ backup_wal_main(int srv, struct configuration* config, char* d) {
         pgmoneta_log_error("connection is null");
     }
 	
-	
-	//wjl todo dbname should be postgres
-	auth = pgmoneta_server_authenticate(srv, "mydb", config->users[usr].username, config->users[usr].password, REPLICATION_PHYSICAL, &socket);
+	auth = pgmoneta_server_authenticate(srv, "postgres", config->users[usr].username, config->users[usr].password, REPLICATION_PHYSICAL, &socket);
 
 	if (auth != AUTH_SUCCESS)
 	{
