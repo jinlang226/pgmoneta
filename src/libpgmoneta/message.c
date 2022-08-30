@@ -564,13 +564,13 @@ pgmoneta_create_startup_message(char* username, char* database, int replication,
    
    if (replication == REPLICATION_PHYSICAL)
    {
-      pgmoneta_write_string(m->data + 13 + us + 1 + 9 + ds + 1 + 17 + 9, "replication"); 
-      pgmoneta_write_int32(m->data + 13 + us + 1 + 9 + ds + 1 + 17 + 9 + 12, replication);   
+      pgmoneta_write_string(m->data + 13 + us + 1 + 9 + ds + 1 + 17 + 8 + 1, "replication"); 
+      pgmoneta_write_string(m->data + 13 + us + 1 + 9 + ds + 1 + 17 + 8 + 1 + 11 + 1, "1");   
    }
    else if (replication == REPLICATION_LOGICAL) 
    {
-      pgmoneta_write_string(m->data + 13 + us + 1 + 9 + ds + 1 + 17 + 9, "replication");  
-      pgmoneta_write_string(m->data + 13 + us + 1 + 9 + ds + 1 + 17 + 9 + 12, "database"); 
+      pgmoneta_write_string(m->data + 13 + us + 1 + 9 + ds + 1 + 17 + 8 + 1, "replication");  
+      pgmoneta_write_string(m->data + 13 + us + 1 + 9 + ds + 1 + 17 + 8 + 1 + 11 + 1, "database"); 
    }
 
    *msg = m;
@@ -892,4 +892,333 @@ ssl_write_message(SSL* ssl, struct message* msg)
    while (keep_write);
 
    return MESSAGE_STATUS_ERROR;
+}
+
+int
+pgmoneta_identify_system(SSL* ssl, int socket)
+{
+   int status;
+   int size = 4 + 15 + 1;
+
+   char query_exeu[size];
+   struct message msg;
+   struct message* reply = NULL; 
+
+   memset(&msg, 0, sizeof(struct message));
+   memset(&query_exeu, 0, sizeof(query_exeu));
+
+   pgmoneta_write_byte(&query_exeu, 'Q');
+   pgmoneta_write_int32(&(query_exeu[1]), size - 1);
+   pgmoneta_write_string(&(query_exeu[5]), "IDENTIFY_SYSTEM");
+
+   msg.kind = 'Q';
+   msg.length = size;
+   msg.data = &query_exeu;
+
+   if (ssl == NULL)
+   {
+      status = write_message(socket, &msg);
+   }
+   else
+   {
+      status = ssl_write_message(ssl, &msg);
+   }
+   if (status != MESSAGE_STATUS_OK)
+   {
+      goto error;
+   }
+
+   if (ssl == NULL)
+   {
+      status = read_message(socket, true, 0, &reply);
+   }
+   else
+   {
+      status = ssl_read_message(ssl, 0, &reply);
+   }
+   if (status != MESSAGE_STATUS_OK)
+   {
+      goto error;
+   }
+
+   if (reply->kind == 'E')
+   {
+      goto error;
+   }
+
+   	// if (PQresultStatus(res) != PGRES_TUPLES_OK)
+		// {
+        //     pgmoneta_log_error("could not send replication command \"%s\": %s", 
+        //                                     "IDENTIFY_SYSTEM", PQerrorMessage(conn));
+		// 	return false;
+		// }
+		// if (PQntuples(res) != 1 || PQnfields(res) < 3)
+		// {
+        //     pgmoneta_log_error("could not identify system: got %d rows and %d fields, expected %d rows and %d or more fields", 
+        //                                     PQntuples(res), PQnfields(res), 1, 3);
+		// 	return false;
+		// }
+		// if (strcmp(stream->sysidentifier, PQgetvalue(res, 0, 0)) != 0)
+		// {
+        //     pgmoneta_log_error("system identifier does not match between base backup and streaming connection");
+		// 	return false;
+		// }
+		// if (stream->timeline > atoi(PQgetvalue(res, 0, 1)))
+		// {
+        //     pgmoneta_log_error("starting timeline %u is not present in the server",
+		// 				 stream->timeline);
+		// 	return false;
+		// }
+   else if (reply->kind == 'T') //Identifies the message as a row description.
+   {
+      pgmoneta_read_block_message(NULL, &socket, struct reply); //should I use the method here?
+
+      //is the following struct correct for 'T'? I am confused about how to use this
+      /*
+      Int32
+      Length of message contents in bytes, including self.
+
+      Int16
+      Specifies the number of fields in a row (can be zero).
+
+      Then, for each field, there is the following:
+
+      String
+      The field name.
+
+      Int32
+      If the field can be identified as a column of a specific table, the object ID of the table; otherwise zero.
+
+      Int16
+      If the field can be identified as a column of a specific table, the attribute number of the column; otherwise zero.
+
+      Int32
+      The object ID of the field's data type.
+
+      Int16
+      The data type size (see pg_type.typlen). Note that negative values denote variable-width types.
+
+      Int32
+      The type modifier (see pg_attribute.atttypmod). The meaning of the modifier is type-specific.
+
+      Int16
+      The format code being used for the field. Currently will be zero (text) or one (binary). In a RowDescription returned from the statement variant of Describe, the format code is not yet known and will always be zero.
+
+      */
+   } 
+   else if (reply->kind == 'D') //Identifies the message as a data row.
+   {
+      /*
+      Int32
+      Length of message contents in bytes, including self.
+
+      Int16
+      The number of column values that follow (possibly zero).
+
+      Next, the following pair of fields appear for each column:
+
+      Int32
+      The length of the column value, in bytes (this count does not include itself). Can be zero. As a special case, -1 indicates a NULL column value. No value bytes follow in the NULL case.
+
+      Byten
+      The value of the column, in the format indicated by the associated format code. n is the above length.
+      */
+   }
+
+   pgmoneta_free_message(reply);
+
+   return 0;
+
+error:
+   if (reply)
+   {
+      pgmoneta_free_message(reply);
+   }
+
+   return 1;
+}
+
+int
+pgmoneta_timeline_history(SSL* ssl, int socket, char* query)
+{
+   int status;
+   int size = 4 + strlen(query) + 1;
+
+   char query_exeu[size];
+   struct message msg;
+   struct message* reply = NULL; 
+
+   memset(&msg, 0, sizeof(struct message));
+   memset(&query_exeu, 0, sizeof(query_exeu));
+
+   pgmoneta_write_byte(&query_exeu, 'Q');
+   pgmoneta_write_int32(&(query_exeu[1]), size - 1);
+   pgmoneta_write_string(&(query_exeu[5]), query);
+
+   msg.kind = 'Q';
+   msg.length = size;
+   msg.data = &query_exeu;
+
+   if (ssl == NULL)
+   {
+      status = write_message(socket, &msg);
+   }
+   else
+   {
+      status = ssl_write_message(ssl, &msg);
+   }
+   if (status != MESSAGE_STATUS_OK)
+   {
+      goto error;
+   }
+
+   if (ssl == NULL)
+   {
+      status = read_message(socket, true, 0, &reply);
+   }
+   else
+   {
+      status = ssl_read_message(ssl, 0, &reply);
+   }
+   if (status != MESSAGE_STATUS_OK)
+   {
+      goto error;
+   }
+
+   if (reply->kind == 'E')
+   {
+      goto error;
+   }
+
+	// res = PQexec(conn, query);
+			// if (PQresultStatus(res) != PGRES_TUPLES_OK)
+			// {
+			// 	/* FIXME: we might send it ok, but get an error */
+            //     pgmoneta_log_error("could not send replication command \"%s\": %s",
+			// 				 "TIMELINE_HISTORY", PQresultErrorMessage(res));
+			// 	PQclear(res);
+			// 	return false;
+			// }
+
+			// /*
+			//  * The response to TIMELINE_HISTORY is a single row result set
+			//  * with two fields: filename and content
+			//  */
+			// if (PQnfields(res) != 2 || PQntuples(res) != 1)
+			// {
+            //     pgmoneta_log_error("unexpected response to TIMELINE_HISTORY command: got %d rows and %d fields, expected %d rows and %d fields",
+			// 				   PQntuples(res), PQnfields(res), 1, 2);
+			// }
+
+			// /* Write the history file to disk */
+			// writeTimeLineHistoryFile(stream,
+			// 						 PQgetvalue(res, 0, 0),
+			// 						 PQgetvalue(res, 0, 1));
+
+   else if (reply->kind == 'T') //Identifies the message as a row description.
+   {
+
+   } 
+   else if (reply->kind == 'D') //Identifies the message as a data row.
+   {
+
+   }
+
+   pgmoneta_free_message(reply);
+
+   return 0;
+
+error:
+   if (reply)
+   {
+      pgmoneta_free_message(reply);
+   }
+
+   return 1;
+}
+
+
+int
+pgmoneta_start_replication(SSL* ssl, int socket, char* query)
+{
+   int status;
+   int size = 4 + strlen(query) + 1;
+
+   char query_exeu[size];
+   struct message msg;
+   struct message* reply = NULL; 
+
+   memset(&msg, 0, sizeof(struct message));
+   memset(&query_exeu, 0, sizeof(query_exeu));
+
+   pgmoneta_write_byte(&query_exeu, 'Q');
+   pgmoneta_write_int32(&(query_exeu[1]), size - 1);
+   pgmoneta_write_string(&(query_exeu[5]), query);
+
+   msg.kind = 'Q';
+   msg.length = size;
+   msg.data = &query_exeu;
+
+   if (ssl == NULL)
+   {
+      status = write_message(socket, &msg);
+   }
+   else
+   {
+      status = ssl_write_message(ssl, &msg);
+   }
+   if (status != MESSAGE_STATUS_OK)
+   {
+      goto error;
+   }
+
+   if (ssl == NULL)
+   {
+      status = read_message(socket, true, 0, &reply);
+   }
+   else
+   {
+      status = ssl_read_message(ssl, 0, &reply);
+   }
+   if (status != MESSAGE_STATUS_OK)
+   {
+      goto error;
+   }
+
+   if (reply->kind == 'E')
+   {
+      goto error;
+   }
+
+		// res = PQexec(conn, query);
+		// if (PQresultStatus(res) != PGRES_COPY_BOTH)
+		// {
+        //     pgmoneta_log_error("could not send replication command \"%s\": %s",
+		// 				 "START_REPLICATION", PQresultErrorMessage(res));
+		// 	PQclear(res);
+		// 	return false;
+		// }
+		// PQclear(res);
+
+
+   else if (reply->kind == 'T') //Identifies the message as a row description.
+   {
+
+   } 
+   else if (reply->kind == 'D') //Identifies the message as a data row.
+   {
+
+   }
+
+   pgmoneta_free_message(reply);
+
+   return 0;
+
+error:
+   if (reply)
+   {
+      pgmoneta_free_message(reply);
+   }
+
+   return 1;
 }

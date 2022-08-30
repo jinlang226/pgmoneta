@@ -1746,43 +1746,11 @@ ReceiveXlogStream(PGconn *conn, StreamCtl *stream)
     pgmoneta_log_info("ready to start ReceiveXlogStream");
 	if (stream->sysidentifier != NULL)
 	{
-		/* Validate system identifier hasn't changed */
-		res = PQexec(conn, "IDENTIFY_SYSTEM");
-		if (PQresultStatus(res) != PGRES_TUPLES_OK)
+		if(!pgmoneta_identify_system(NULL, &socket)) //is it okay to put null in ssl?
 		{
-			//pg_log_error("could not send replication command \"%s\": %s",
-						 //"IDENTIFY_SYSTEM", PQerrorMessage(conn));
-            pgmoneta_log_error("could not send replication command \"%s\": %s", 
-                                            "IDENTIFY_SYSTEM", PQerrorMessage(conn));
-			PQclear(res);
+			pg_log_error("identify system error");
 			return false;
 		}
-		if (PQntuples(res) != 1 || PQnfields(res) < 3)
-		{
-			//pg_log_error("could not identify system: got %d rows and %d fields, expected %d rows and %d or more fields",
-						 //PQntuples(res), PQnfields(res), 1, 3);
-            pgmoneta_log_error("could not identify system: got %d rows and %d fields, expected %d rows and %d or more fields", 
-                                            PQntuples(res), PQnfields(res), 1, 3);
-			PQclear(res);
-			return false;
-		}
-		if (strcmp(stream->sysidentifier, PQgetvalue(res, 0, 0)) != 0)
-		{
-			//pg_log_error("system identifier does not match between base backup and streaming connection");
-            pgmoneta_log_error("system identifier does not match between base backup and streaming connection");
-			PQclear(res);
-			return false;
-		}
-		if (stream->timeline > atoi(PQgetvalue(res, 0, 1)))
-		{
-			//pg_log_error("starting timeline %u is not present in the server",
-			//			 stream->timeline);
-            pgmoneta_log_error("starting timeline %u is not present in the server",
-						 stream->timeline);
-			PQclear(res);
-			return false;
-		}
-		PQclear(res);
 	}
     pgmoneta_log_info("ReceiveXlogStream to while loop");
 	/*
@@ -1802,38 +1770,9 @@ ReceiveXlogStream(PGconn *conn, StreamCtl *stream)
 		if (!existsTimeLineHistoryFile(stream))
 		{
 			snprintf(query, sizeof(query), "TIMELINE_HISTORY %u", stream->timeline);
-			res = PQexec(conn, query);
-			if (PQresultStatus(res) != PGRES_TUPLES_OK)
-			{
-				/* FIXME: we might send it ok, but get an error */
-				//pg_log_error("could not send replication command \"%s\": %s",
-				//			 "TIMELINE_HISTORY", PQresultErrorMessage(res));
-                pgmoneta_log_error("could not send replication command \"%s\": %s",
-							 "TIMELINE_HISTORY", PQresultErrorMessage(res));
-				PQclear(res);
-				return false;
-			}
+			pgmoneta_timeline_history(NULL, &socket, query);
 
-			/*
-			 * The response to TIMELINE_HISTORY is a single row result set
-			 * with two fields: filename and content
-			 */
-			if (PQnfields(res) != 2 || PQntuples(res) != 1)
-			{
-				//pg_log_warning("unexpected response to TIMELINE_HISTORY command: got %d rows and %d fields, expected %d rows and %d fields",
-				//			   PQntuples(res), PQnfields(res), 1, 2);
-                pgmoneta_log_error("unexpected response to TIMELINE_HISTORY command: got %d rows and %d fields, expected %d rows and %d fields",
-							   PQntuples(res), PQnfields(res), 1, 2);
-			}
-
-			/* Write the history file to disk */
-			writeTimeLineHistoryFile(stream,
-									 PQgetvalue(res, 0, 0),
-									 PQgetvalue(res, 0, 1));
-
-			PQclear(res);
 		}
-
 		/*
 		 * Before we start streaming from the requested location, check if the
 		 * callback tells us to stop here.
@@ -1846,18 +1785,8 @@ ReceiveXlogStream(PGconn *conn, StreamCtl *stream)
 				 slotcmd,
 				 LSN_FORMAT_ARGS(stream->startpos),
 				 stream->timeline);
-		pgmoneta_log_info("konglx: query: %s",query);
-		res = PQexec(conn, query);
-		if (PQresultStatus(res) != PGRES_COPY_BOTH)
-		{
-			//pg_log_error("could not send replication command \"%s\": %s",
-			//			 "START_REPLICATION", PQresultErrorMessage(res));
-            pgmoneta_log_error("could not send replication command \"%s\": %s",
-						 "START_REPLICATION", PQresultErrorMessage(res));
-			PQclear(res);
-			return false;
-		}
-		PQclear(res);
+
+		pgmoneta_start_replication(NULL, &socket, query)	
 
 		/* Stream the WAL */
 		res = HandleCopyStream(conn, stream, &stoppos);
@@ -2003,9 +1932,7 @@ RunIdentifySystem(PGconn *conn, char **sysid, TimeLineID *starttli,
 	res = PQexec(conn, "IDENTIFY_SYSTEM");
 	if (PQresultStatus(res) != PGRES_TUPLES_OK)
 	{
-		//pg_log_error("could not send replication command \"%s\": %s",
-		//			 "IDENTIFY_SYSTEM", PQerrorMessage(conn));
-        pgmoneta_log_error("could not send replication command \"%s\": %s",
+        gmoneta_log_error("could not send replication command \"%s\": %s",
 					 "IDENTIFY_SYSTEM", PQerrorMessage(conn));
 		PQclear(res);
 		return false;
@@ -2110,8 +2037,8 @@ StreamLog(void)
 	 * existing output directory.
 	 */
 	if (!RunIdentifySystem(conn, NULL, &servertli, &serverpos, NULL))
+	if(!pgmoneta_query_exec(NULL, &socket, IDENTIFY_SYSTEM)) //is it okay to put null in ssl?
 		exit(1);
-
 
 	/*
 	 * Figure out where to start streaming.
@@ -2192,22 +2119,22 @@ backup_wal_main(int srv, struct configuration* config, char* d) {
     */
 
 
-	conn = PQconnectdb("host=localhost port=5432 dbname=mydb user=repl password=secretpassword replication=database");//PQsetdbLogin(dbhost, dbport,NULL,NULL,NULL,dbuser,pwd);
+	// conn = PQconnectdb("host=localhost port=5432 dbname=mydb user=repl password=secretpassword replication=database");//PQsetdbLogin(dbhost, dbport,NULL,NULL,NULL,dbuser,pwd);
 
-    //check connection okay
-    if (PQstatus(conn) != CONNECTION_OK)
-    {
-        fprintf(stderr, "Connection to database failed: %s",
-                PQerrorMessage(conn));
-        exit_nicely(conn);
-    }
+    // //check connection okay
+    // if (PQstatus(conn) != CONNECTION_OK)
+    // {
+    //     fprintf(stderr, "Connection to database failed: %s",
+    //             PQerrorMessage(conn));
+    //     exit_nicely(conn);
+    // }
 
-	pgmoneta_log_info("conn server connected!");
+	// pgmoneta_log_info("conn server connected!");
 	
-	if (conn == NULL){
-        //conn = GetConnection();
-        pgmoneta_log_error("connection is null");
-    }
+	// if (conn == NULL){
+    //     //conn = GetConnection();
+    //     pgmoneta_log_error("connection is null");
+    // }
 	
 	auth = pgmoneta_server_authenticate(srv, "postgres", config->users[usr].username, config->users[usr].password, REPLICATION_PHYSICAL, &socket);
 
