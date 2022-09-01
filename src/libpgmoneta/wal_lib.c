@@ -130,7 +130,6 @@ get_destination_dir(char *dest_folder)
 	dir = opendir(dest_folder);
 	if (dir == NULL)
 	{
-		//pg_log_error("could not open directory \"%s\": %m", basedir);
 		pgmoneta_log_error("could not open directory \"%s\": %m", basedir);
 		exit(1);
 	}
@@ -148,7 +147,6 @@ close_destination_dir(DIR *dest_dir, char *dest_folder)
 	//Assert(dest_dir != NULL && dest_folder != NULL);
 	if (closedir(dest_dir))
 	{
-		//pg_log_error("could not close directory \"%s\": %m", dest_folder);
 		pgmoneta_log_error("could not close directory \"%s\": %m", dest_folder);
 		exit(1);
 	}
@@ -323,7 +321,6 @@ FindStreamingStart(uint32 *tli)
 			snprintf(fullpath, sizeof(fullpath), "%s/%s", basedir, dirent->d_name);
 			if (stat(fullpath, &statbuf) != 0)
 			{
-				//pg_log_error("could not stat file \"%s\": %m", fullpath);
 				pgmoneta_log_error("could not stat file \"%s\": %m", fullpath);
 				exit(1);
 			}
@@ -350,16 +347,12 @@ FindStreamingStart(uint32 *tli)
 			fd = open(fullpath, O_RDONLY | PG_BINARY, 0);
 			if (fd < 0)
 			{
-				//pg_log_error("could not open compressed file \"%s\": %m",
-				//			 fullpath);
 				pgmoneta_log_error("could not open compressed file \"%s\": %m",
 							 fullpath);
 				exit(1);
 			}
 			if (lseek(fd, (off_t) (-4), SEEK_END) < 0)
 			{
-				//pg_log_error("could not seek in compressed file \"%s\": %m",
-				//			 fullpath);
 				pgmoneta_log_error("could not seek in compressed file \"%s\": %m",
 							 fullpath);
 				exit(1);
@@ -368,13 +361,9 @@ FindStreamingStart(uint32 *tli)
 			if (r != sizeof(buf))
 			{
 				if (r < 0)
-					//pg_log_error("could not read compressed file \"%s\": %m",
-					//			 fullpath);
 					pgmoneta_log_error("could not read compressed file \"%s\": %m",
 								 fullpath);
 				else
-					//pg_log_error("could not read compressed file \"%s\": read %d of %zu",
-					//			 fullpath, r, sizeof(buf));
 					pgmoneta_log_error("could not read compressed file \"%s\": read %d of %zu",
 								 fullpath, r, sizeof(buf));
 				exit(1);
@@ -407,7 +396,6 @@ FindStreamingStart(uint32 *tli)
 
 	if (errno)
 	{
-		//pg_log_error("could not read directory \"%s\": %m", basedir);
 		pgmoneta_log_error("could not read directory \"%s\": %m", basedir);
 		exit(1);
 	}
@@ -501,8 +489,6 @@ mark_file_as_archived(StreamCtl *stream, const char *fname)
 	f = stream->walmethod->open_for_write(tmppath, NULL, 0);
 	if (f == NULL)
 	{
-		//pg_log_error("could not create archive status file \"%s\": %s",
-		//			 tmppath, stream->walmethod->getlasterror());
 		pgmoneta_log_error("could not create archive status file \"%s\": %s",
 					 tmppath, stream->walmethod->getlasterror());
 		return false;
@@ -510,8 +496,6 @@ mark_file_as_archived(StreamCtl *stream, const char *fname)
 
 	if (stream->walmethod->close(f, CLOSE_NORMAL) != 0)
 	{
-		//pg_log_error("could not close archive status file \"%s\": %s",
-		//			 tmppath, stream->walmethod->getlasterror());
 		pgmoneta_log_error("could not close archive status file \"%s\": %s",
 					 tmppath, stream->walmethod->getlasterror());
 		return false;
@@ -538,8 +522,6 @@ close_walfile(StreamCtl *stream, XLogRecPtr pos)
 	currpos = stream->walmethod->get_current_pos(walfile);
 	if (currpos == -1)
 	{
-		//pg_log_error("could not determine seek position in file \"%s\": %s",
-		//			 current_walfile_name, stream->walmethod->getlasterror());
         pgmoneta_log_error("could not determine seek position in file \"%s\": %s",
 					 current_walfile_name, stream->walmethod->getlasterror());
 		stream->walmethod->close(walfile, CLOSE_UNLINK);
@@ -568,8 +550,6 @@ close_walfile(StreamCtl *stream, XLogRecPtr pos)
 
 	if (r != 0)
 	{
-		//pg_log_error("could not close file \"%s\": %s",
-		//			 current_walfile_name, stream->walmethod->getlasterror());
         pgmoneta_log_error("could not close file \"%s\": %s",
 					 current_walfile_name, stream->walmethod->getlasterror());
 		return false;
@@ -608,8 +588,6 @@ CheckCopyStreamStop(PGconn *conn, StreamCtl *stream, XLogRecPtr blockpos)
 		}
 		if (PQputCopyEnd(conn, NULL) <= 0 || PQflush(conn))
 		{
-			//pg_log_error("could not send copy-end packet: %s",
-			//			 PQerrorMessage(conn));
             pgmoneta_log_error("could not send copy-end packet: %s",
 						 PQerrorMessage(conn));
 			return false;
@@ -659,8 +637,6 @@ sendFeedback(PGconn *conn, XLogRecPtr blockpos, TimestampTz now, bool replyReque
 
 	if (PQputCopyData(conn, replybuf, len) <= 0 || PQflush(conn))
 	{
-		//pg_log_error("could not send feedback packet: %s",
-		//			 PQerrorMessage(conn));
         pgmoneta_log_error("could not send feedback packet: %s",
 					 PQerrorMessage(conn));
 		return false;
@@ -770,7 +746,6 @@ CopyStreamPoll(PGconn *conn, long timeout_ms, pgsocket stop_socket)
 	connsocket = PQsocket(conn);
 	if (connsocket < 0)
 	{
-		//pg_log_error("invalid socket: %s", PQerrorMessage(conn));
         pgmoneta_log_error("invalid socket: %s", PQerrorMessage(conn));
 		return -1;
 	}
@@ -799,7 +774,6 @@ CopyStreamPoll(PGconn *conn, long timeout_ms, pgsocket stop_socket)
 	{
 		//if (errno == EINTR)
 		//	return 0;			/* Got a signal, so not an error */
-		//pg_log_error("%s() failed: %m", "select");
         pgmoneta_log_error("%s() failed: %m", "select");
 		return -1;
 	}
@@ -850,8 +824,6 @@ CopyStreamReceive(PGconn *conn, long timeout, pgsocket stop_socket,
 		/* Now there is actually data on the socket */
 		if (PQconsumeInput(conn) == 0)
 		{
-			//pg_log_error("could not receive data from WAL stream: %s",
-			//			 PQerrorMessage(conn));
             pgmoneta_log_error("could not receive data from WAL stream: %s",
 						 PQerrorMessage(conn));
 			return -1;
@@ -866,7 +838,6 @@ CopyStreamReceive(PGconn *conn, long timeout, pgsocket stop_socket,
 		return -2;
 	if (rawlen == -2)
 	{
-		//pg_log_error("could not read COPY data: %s", PQerrorMessage(conn));
         pgmoneta_log_error("could not read COPY data: %s", PQerrorMessage(conn));
 		return -1;
 	}
@@ -935,7 +906,6 @@ ProcessKeepaliveMsg(PGconn *conn, StreamCtl *stream, char *copybuf, int len,
 
 	if (len < pos + 1)
 	{
-		//pg_log_error("streaming header too small: %d", len);
         pgmoneta_log_error("streaming header too small: %d", len);
 		return false;
 	}
@@ -1001,8 +971,6 @@ HandleEndOfCopyStream(PGconn *conn, StreamCtl *stream, char *copybuf,
 		{
 			if (PQputCopyEnd(conn, NULL) <= 0 || PQflush(conn))
 			{
-				//pg_log_error("could not send copy-end packet: %s",
-				//			 PQerrorMessage(conn));
                 pgmoneta_log_error("could not send copy-end packet: %s",
 							 PQerrorMessage(conn));
 				PQclear(res);
@@ -1141,8 +1109,6 @@ open_walfile(StreamCtl *stream, XLogRecPtr startpoint)
 		size = stream->walmethod->get_file_size(fn);
 		if (size < 0)
 		{
-			//pg_log_error("could not get size of write-ahead log file \"%s\": %s",
-			//			 fn, stream->walmethod->getlasterror());
             pgmoneta_log_error("could not get size of write-ahead log file \"%s\": %s",
 						 fn, stream->walmethod->getlasterror());
 			pg_free(fn);
@@ -1155,8 +1121,6 @@ open_walfile(StreamCtl *stream, XLogRecPtr startpoint)
 			f = stream->walmethod->open_for_write(current_walfile_name, stream->partial_suffix, 0);
 			if (f == NULL)
 			{
-				//pg_log_error("could not open existing write-ahead log file \"%s\": %s",
-				//			 fn, stream->walmethod->getlasterror());
                 pgmoneta_log_error("could not open existing write-ahead log file \"%s\": %s",
 							 fn, stream->walmethod->getlasterror());
 				pg_free(fn);
@@ -1184,10 +1148,6 @@ open_walfile(StreamCtl *stream, XLogRecPtr startpoint)
 			/* if write didn't set errno, assume problem is no disk space */
 			/*if (errno == 0)
 			//	errno = ENOSPC;
-			pg_log_error(ngettext("write-ahead log file \"%s\" has %d byte, should be 0 or %d",
-								  "write-ahead log file \"%s\" has %d bytes, should be 0 or %d",
-								  size),
-						 fn, (int) size, WalSegSz);
                          */
             pgmoneta_log_error(ngettext("write-ahead log file \"%s\" has %d byte, should be 0 or %d",
 								  "write-ahead log file \"%s\" has %d bytes, should be 0 or %d",
@@ -1205,8 +1165,6 @@ open_walfile(StreamCtl *stream, XLogRecPtr startpoint)
 										  stream->partial_suffix, WalSegSz);
 	if (f == NULL)
 	{
-		//pg_log_error("could not open write-ahead log file \"%s\": %s",
-		//			 fn, stream->walmethod->getlasterror());
         pgmoneta_log_error("could not open write-ahead log file \"%s\": %s",
 					 fn, stream->walmethod->getlasterror());
 		pg_free(fn);
@@ -1249,7 +1207,6 @@ ProcessXLogDataMsg(PGconn *conn, StreamCtl *stream, char *copybuf, int len,
 	hdr_len += 8;				/* sendTime */
 	if (len < hdr_len)
 	{
-		//pg_log_error("streaming header too small: %d", len);
         pgmoneta_log_error("streaming header too small: %d", len);
 		return false;
 	}
@@ -1270,8 +1227,6 @@ ProcessXLogDataMsg(PGconn *conn, StreamCtl *stream, char *copybuf, int len,
 		/* No file open yet */
 		if (xlogoff != 0)
 		{
-			//pg_log_error("received write-ahead log record for offset %u with no file open",
-			//			 xlogoff);
             pgmoneta_log_info("received write-ahead log record for offset %u with no file open",
 						 xlogoff);
 			return false;
@@ -1283,8 +1238,6 @@ ProcessXLogDataMsg(PGconn *conn, StreamCtl *stream, char *copybuf, int len,
 		/* More data in existing segment */
 		if (stream->walmethod->get_current_pos(walfile) != xlogoff)
 		{
-			//pg_log_error("got WAL data offset %08x, expected %08x",
-			//			 xlogoff, (int) stream->walmethod->get_current_pos(walfile));
             pgmoneta_log_error("got WAL data offset %08x, expected %08x",
 						 xlogoff, (int) stream->walmethod->get_current_pos(walfile));
 			return false;
@@ -1326,10 +1279,6 @@ ProcessXLogDataMsg(PGconn *conn, StreamCtl *stream, char *copybuf, int len,
 		if (stream->walmethod->write(walfile, copybuf + hdr_len + bytes_written,
 									 bytes_to_write) != bytes_to_write)
 		{
-			/*pg_log_error("could not write %u bytes to WAL file \"%s\": %s",
-						 bytes_to_write, current_walfile_name,
-						 stream->walmethod->getlasterror());
-            */
            pgmoneta_log_error("could not write %u bytes to WAL file \"%s\": %s",
 						 bytes_to_write, current_walfile_name,
 						 stream->walmethod->getlasterror());
@@ -1361,8 +1310,6 @@ ProcessXLogDataMsg(PGconn *conn, StreamCtl *stream, char *copybuf, int len,
 				pgmoneta_log_info("konglx: still_sending && stream->stream_stop is true");
 				if (PQputCopyEnd(conn, NULL) <= 0 || PQflush(conn))
 				{
-					//pg_log_error("could not send copy-end packet: %s",
-					//			 PQerrorMessage(conn));
                     pgmoneta_log_error("could not send copy-end packet: %s",
 								 PQerrorMessage(conn));
 					return false;
@@ -1504,8 +1451,6 @@ HandleCopyStream(PGconn *conn, StreamCtl *stream,
 			}
 			else
 			{
-				//pg_log_error("unrecognized streaming header: \"%c\"",
-				//			 copybuf[0]);
                 pgmoneta_log_error("unrecognized streaming header: \"%c\"",
 							 copybuf[0]);
 				goto error;
@@ -1549,8 +1494,6 @@ ReadEndOfStreamingResult(PGresult *res, XLogRecPtr *startpos, uint32 *timeline)
 	 */
 	if (PQnfields(res) < 2 || PQntuples(res) != 1)
 	{
-		//pg_log_error("unexpected result set after end-of-timeline: got %d rows and %d fields, expected %d rows and %d fields",
-		//			 PQntuples(res), PQnfields(res), 1, 2);
         pgmoneta_log_error("unexpected result set after end-of-timeline: got %d rows and %d fields, expected %d rows and %d fields",
 					 PQntuples(res), PQnfields(res), 1, 2);
 		return false;
@@ -1560,8 +1503,6 @@ ReadEndOfStreamingResult(PGresult *res, XLogRecPtr *startpos, uint32 *timeline)
 	if (sscanf(PQgetvalue(res, 0, 1), "%X/%X", &startpos_xlogid,
 			   &startpos_xrecoff) != 2)
 	{
-		//pg_log_error("could not parse next timeline's starting point \"%s\"",
-		//			 PQgetvalue(res, 0, 1));
         pgmoneta_log_error("could not parse next timeline's starting point \"%s\"",
 					 PQgetvalue(res, 0, 1));
 		return false;
@@ -1608,8 +1549,6 @@ writeTimeLineHistoryFile(StreamCtl *stream, char *filename, char *content)
 	TLHistoryFileName(histfname, stream->timeline);
 	if (strcmp(histfname, filename) != 0)
 	{
-		//pg_log_error("server reported unexpected history file name for timeline %u: %s",
-		//			 stream->timeline, filename);
 		pgmoneta_log_error("server reported unexpected history file name for timeline %u: %s",
 					 stream->timeline, filename);
 		return false;
@@ -1618,8 +1557,6 @@ writeTimeLineHistoryFile(StreamCtl *stream, char *filename, char *content)
 	f = stream->walmethod->open_for_write(histfname, ".tmp", 0);
 	if (f == NULL)
 	{
-		//pg_log_error("could not create timeline history file \"%s\": %s",
-		//			 histfname, stream->walmethod->getlasterror());
 		pgmoneta_log_error("could not create timeline history file \"%s\": %s",
 					 histfname, stream->walmethod->getlasterror());
 		return false;
@@ -1627,8 +1564,6 @@ writeTimeLineHistoryFile(StreamCtl *stream, char *filename, char *content)
 
 	if ((int) stream->walmethod->write(f, content, size) != size)
 	{
-		//pg_log_error("could not write timeline history file \"%s\": %s",
-		//			 histfname, stream->walmethod->getlasterror());
 		pgmoneta_log_error("could not write timeline history file \"%s\": %s",
 					 histfname, stream->walmethod->getlasterror());
 
@@ -1642,8 +1577,6 @@ writeTimeLineHistoryFile(StreamCtl *stream, char *filename, char *content)
 
 	if (stream->walmethod->close(f, CLOSE_NORMAL) != 0)
 	{
-		//pg_log_error("could not close file \"%s\": %s",
-		//			 histfname, stream->walmethod->getlasterror());
 		pgmoneta_log_error("could not close file \"%s\": %s",
 					 histfname, stream->walmethod->getlasterror());
 		return false;
@@ -1746,9 +1679,12 @@ ReceiveXlogStream(PGconn *conn, StreamCtl *stream)
     pgmoneta_log_info("ready to start ReceiveXlogStream");
 	if (stream->sysidentifier != NULL)
 	{
-		if(!pgmoneta_identify_system(NULL, &socket)) //is it okay to put null in ssl?
+		int *system_id = NULL;
+		int *xlogpos = NULL;
+		int *db = NULL;
+		if(!pgmoneta_identify_system(NULL, &socket, &system_id, stream->timeline, xlogpos, db));
 		{
-			pg_log_error("identify system error");
+			pgmoneta_log_error("identify system error");
 			return false;
 		}
 	}
@@ -1769,8 +1705,11 @@ ReceiveXlogStream(PGconn *conn, StreamCtl *stream)
 		 */
 		if (!existsTimeLineHistoryFile(stream))
 		{
-			snprintf(query, sizeof(query), "TIMELINE_HISTORY %u", stream->timeline);
-			pgmoneta_timeline_history(NULL, &socket, query);
+			// snprintf(query, sizeof(query), "TIMELINE_HISTORY %u", stream->timeline);
+			char** sys_id = NULL;
+			char** xlogpos = NULL;
+			char** db = NULL;
+			pgmoneta_timeline_history(NULL, &socket, stream->timeline);
 
 		}
 		/*
@@ -1786,7 +1725,7 @@ ReceiveXlogStream(PGconn *conn, StreamCtl *stream)
 				 LSN_FORMAT_ARGS(stream->startpos),
 				 stream->timeline);
 
-		pgmoneta_start_replication(NULL, &socket, query)	
+		pgmoneta_start_replication(NULL, &socket, query);	
 
 		/* Stream the WAL */
 		res = HandleCopyStream(conn, stream, &stoppos);
@@ -1825,19 +1764,12 @@ ReceiveXlogStream(PGconn *conn, StreamCtl *stream)
 			/* Sanity check the values the server gave us */
 			if (newtimeline <= stream->timeline)
 			{
-				//pg_log_error("server reported unexpected next timeline %u, following timeline %u",
-				//			 newtimeline, stream->timeline);
                 pgmoneta_log_error("server reported unexpected next timeline %u, following timeline %u",
 							 newtimeline, stream->timeline);
 				goto error;
 			}
 			if (stream->startpos > stoppos)
 			{
-				/*
-                pg_log_error("server stopped streaming timeline %u at %X/%X, but reported next timeline %u to begin at %X/%X",
-							 stream->timeline, LSN_FORMAT_ARGS(stoppos),
-							 newtimeline, LSN_FORMAT_ARGS(stream->startpos));
-                */
                 pgmoneta_log_error("server stopped streaming timeline %u at %X/%X, but reported next timeline %u to begin at %X/%X",
 							 stream->timeline, LSN_FORMAT_ARGS(stoppos),
 							 newtimeline, LSN_FORMAT_ARGS(stream->startpos));
@@ -1848,8 +1780,6 @@ ReceiveXlogStream(PGconn *conn, StreamCtl *stream)
 			res = PQgetResult(conn);
 			if (PQresultStatus(res) != PGRES_COMMAND_OK)
 			{
-				//pg_log_error("unexpected termination of replication stream: %s",
-				//			 PQresultErrorMessage(res));
                 pgmoneta_log_error("unexpected termination of replication stream: %s",
 							 PQresultErrorMessage(res));
 				PQclear(res);
@@ -1880,17 +1810,12 @@ ReceiveXlogStream(PGconn *conn, StreamCtl *stream)
 				return true;
 			else
 			{
-				//pg_log_error("replication stream was terminated before stop point");
                 pgmoneta_log_error("replication stream was terminated before stop point");
 				goto error;
 			}
 		}
 		else
 		{
-			/* Server returned an error. 
-			pg_log_error("unexpected termination of replication stream: %s",
-						 PQresultErrorMessage(res));
-            */
             pgmoneta_log_error("unexpected termination of replication stream: %s",
 						 PQresultErrorMessage(res));
 			PQclear(res);
@@ -1900,8 +1825,6 @@ ReceiveXlogStream(PGconn *conn, StreamCtl *stream)
 
 error:
 	if (walfile != NULL && stream->walmethod->close(walfile, CLOSE_NO_RENAME) != 0)
-		//pg_log_error("could not close file \"%s\": %s",
-		//			 current_walfile_name, stream->walmethod->getlasterror());
         pgmoneta_log_error("could not close file \"%s\": %s",
 					 current_walfile_name, stream->walmethod->getlasterror());
 	walfile = NULL;
@@ -1932,15 +1855,13 @@ RunIdentifySystem(PGconn *conn, char **sysid, TimeLineID *starttli,
 	res = PQexec(conn, "IDENTIFY_SYSTEM");
 	if (PQresultStatus(res) != PGRES_TUPLES_OK)
 	{
-        gmoneta_log_error("could not send replication command \"%s\": %s",
+        pgmoneta_log_error("could not send replication command \"%s\": %s",
 					 "IDENTIFY_SYSTEM", PQerrorMessage(conn));
 		PQclear(res);
 		return false;
 	}
 	if (PQntuples(res) != 1 || PQnfields(res) < 3)
 	{
-		//pg_log_error("could not identify system: got %d rows and %d fields, expected %d rows and %d or more fields",
-		//			 PQntuples(res), PQnfields(res), 1, 3);
         pgmoneta_log_error("could not identify system: got %d rows and %d fields, expected %d rows and %d or more fields",
 					 PQntuples(res), PQnfields(res), 1, 3);
 		PQclear(res);
@@ -1960,8 +1881,6 @@ RunIdentifySystem(PGconn *conn, char **sysid, TimeLineID *starttli,
 	{
 		if (sscanf(PQgetvalue(res, 0, 2), "%X/%X", &hi, &lo) != 2)
 		{
-			//pg_log_error("could not parse write-ahead log location \"%s\"",
-			//			 PQgetvalue(res, 0, 2));
             pgmoneta_log_error("could not parse write-ahead log location \"%s\"",
 						 PQgetvalue(res, 0, 2));
 			PQclear(res);
@@ -1978,8 +1897,6 @@ RunIdentifySystem(PGconn *conn, char **sysid, TimeLineID *starttli,
 		{
 			if (PQnfields(res) < 4)
 			{
-				//pg_log_error("could not identify system: got %d rows and %d fields, expected %d rows and %d or more fields",
-				//			 PQntuples(res), PQnfields(res), 1, 4);
                 pgmoneta_log_error("could not identify system: got %d rows and %d fields, expected %d rows and %d or more fields",
 							 PQntuples(res), PQnfields(res), 1, 4);
 				PQclear(res);
@@ -2036,10 +1953,18 @@ StreamLog(void)
 	 * at the same time, necessary if not valid data can be found in the
 	 * existing output directory.
 	 */
-	if (!RunIdentifySystem(conn, NULL, &servertli, &serverpos, NULL))
-	if(!pgmoneta_query_exec(NULL, &socket, IDENTIFY_SYSTEM)) //is it okay to put null in ssl?
-		exit(1);
+	// if (!RunIdentifySystem(conn, NULL, &servertli, &serverpos, NULL))
+	// if(!pgmoneta_identify_system(NULL, &socket, IDENTIFY_SYSTEM)) //is it okay to put null in ssl?
+		// exit(1);
 
+	int *system_id = NULL;
+	int *xlogpos = NULL;
+	int *db = NULL;
+	if(!pgmoneta_identify_system(NULL, &socket, &system_id, stream.timeline, xlogpos, db));
+	{
+		pgmoneta_log_error("identify system error");
+		exit(1);	
+	}
 	/*
 	 * Figure out where to start streaming.
 	 */
@@ -2099,17 +2024,9 @@ StreamLog(void)
 
 int
 backup_wal_main(int srv, struct configuration* config, char* d) {
-	// d = pgmoneta_append(d, "waltest/");
     // pgmoneta_log_info("ddddd: %s", d);
     // pgmoneta_mkdir(d);
-    int			c;
-	int			option_index;
-	char	   *db_name;
-	uint32		hi,
-				lo;
-    pgmoneta_log_info("start backup wal main");
-	basedir = "/home/pgmoneta/pgmoneta/backup/primary/wal/";
-    /*connection_string = 
+	 /*connection_string = 
     dbhost = "localhost";
     dbport = "5432";
     dbuser = "repl";
@@ -2135,8 +2052,42 @@ backup_wal_main(int srv, struct configuration* config, char* d) {
     //     //conn = GetConnection();
     //     pgmoneta_log_error("connection is null");
     // }
+
+	int 		auth;
+	int 		usr;
+    int			c;
+	int			option_index;
+	char	   *db_name;
+	uint32		hi,
+				lo;
+	int socket = -1;
+    pgmoneta_log_info("start backup wal main");
+	basedir = "/home/pgmoneta/backup/primary/wal/";
+   
+	// struct configuration* config;
+
+   	// config = (struct configuration*)shmem;
+
+   	// config->servers[srv].valid = false;
+	// usr = -1;
+
+	// for (int i = 0; usr == -1 && i < config->number_of_users; i++)
+	// {
+	// 	if (!strcmp(config->servers[srv].username, config->users[i].username))
+	// 	{
+	// 		pgmoneta_log_info("config server username: %s", config->servers[srv].username);
+	// 		pgmoneta_log_info("config user username: %s", config->users[i].username);			
+	// 		usr = i;
+	// 	}
+	// }
+
+	// if (usr == -1)
+	// {
+	// 	goto done;
+	// }
 	
-	auth = pgmoneta_server_authenticate(srv, "postgres", config->users[usr].username, config->users[usr].password, REPLICATION_PHYSICAL, &socket);
+	// auth = pgmoneta_server_authenticate(srv, "postgres", config->users[usr].username, config->users[usr].password, REPLICATION_PHYSICAL, &socket);
+	auth = pgmoneta_server_authenticate(srv, "postgres", "repl", "secretpassword", REPLICATION_PHYSICAL, &socket);
 
 	if (auth != AUTH_SUCCESS)
 	{
@@ -2162,7 +2113,6 @@ backup_wal_main(int srv, struct configuration* config, char* d) {
 		}
 		else if (noloop)
 		{
-			//pg_log_error("disconnected");
             pgmoneta_log_error("disconnected");
 			exit(1);
 		}

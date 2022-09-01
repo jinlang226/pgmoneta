@@ -33,6 +33,7 @@
 #include <message.h>
 #include <network.h>
 #include <utils.h>
+#include <security.h>
 
 #include <assert.h>
 #include <errno.h>
@@ -895,10 +896,14 @@ ssl_write_message(SSL* ssl, struct message* msg)
 }
 
 int
-pgmoneta_identify_system(SSL* ssl, int socket)
+pgmoneta_identify_system(SSL* ssl, int socket, char** system_id, int* timeline, char** xlogpos, char** db)
 {
    int status;
-   int size = 4 + 15 + 1;
+   int size = 1 + 4 + 16 + 1;
+
+   char* sys_id = NULL;
+   char** x_log_pos = NULL;
+   char** database = NULL;
 
    char query_exeu[size];
    struct message msg;
@@ -909,7 +914,7 @@ pgmoneta_identify_system(SSL* ssl, int socket)
 
    pgmoneta_write_byte(&query_exeu, 'Q');
    pgmoneta_write_int32(&(query_exeu[1]), size - 1);
-   pgmoneta_write_string(&(query_exeu[5]), "IDENTIFY_SYSTEM");
+   pgmoneta_write_string(&(query_exeu[5]), "IDENTIFY_SYSTEM;");
 
    msg.kind = 'Q';
    msg.length = size;
@@ -946,43 +951,20 @@ pgmoneta_identify_system(SSL* ssl, int socket)
       goto error;
    }
 
-   	// if (PQresultStatus(res) != PGRES_TUPLES_OK)
-		// {
-        //     pgmoneta_log_error("could not send replication command \"%s\": %s", 
-        //                                     "IDENTIFY_SYSTEM", PQerrorMessage(conn));
-		// 	return false;
-		// }
-		// if (PQntuples(res) != 1 || PQnfields(res) < 3)
-		// {
-        //     pgmoneta_log_error("could not identify system: got %d rows and %d fields, expected %d rows and %d or more fields", 
-        //                                     PQntuples(res), PQnfields(res), 1, 3);
-		// 	return false;
-		// }
-		// if (strcmp(stream->sysidentifier, PQgetvalue(res, 0, 0)) != 0)
-		// {
-        //     pgmoneta_log_error("system identifier does not match between base backup and streaming connection");
-		// 	return false;
-		// }
-		// if (stream->timeline > atoi(PQgetvalue(res, 0, 1)))
-		// {
-        //     pgmoneta_log_error("starting timeline %u is not present in the server",
-		// 				 stream->timeline);
-		// 	return false;
-		// }
-   else if (reply->kind == 'T') //Identifies the message as a row description.
+   //wjl print the msg
+   pgmoneta_log_info("wjl printing log message"); 
+   pgmoneta_log_message(reply);
+
+   int offset = 0;
+   signed char msg_type = pgmoneta_read_byte(reply->data + offset);
+   if (msg_type == 'D')
    {
-      pgmoneta_read_block_message(NULL, &socket, struct reply); //should I use the method here?
-
-      //is the following struct correct for 'T'? I am confused about how to use this
+      // int length = 0;
+      offset += 1;
+      int32_t length = pgmoneta_read_int32(reply->data + offset);
+      offset += 4;
+      int16_t num_fields = pgmoneta_read_int16(reply->data + offset);
       /*
-      Int32
-      Length of message contents in bytes, including self.
-
-      Int16
-      Specifies the number of fields in a row (can be zero).
-
-      Then, for each field, there is the following:
-
       String
       The field name.
 
@@ -1003,26 +985,43 @@ pgmoneta_identify_system(SSL* ssl, int socket)
 
       Int16
       The format code being used for the field. Currently will be zero (text) or one (binary). In a RowDescription returned from the statement variant of Describe, the format code is not yet known and will always be zero.
-
       */
-   } 
-   else if (reply->kind == 'D') //Identifies the message as a data row.
-   {
-      /*
-      Int32
-      Length of message contents in bytes, including self.
 
-      Int16
-      The number of column values that follow (possibly zero).
-
-      Next, the following pair of fields appear for each column:
-
-      Int32
-      The length of the column value, in bytes (this count does not include itself). Can be zero. As a special case, -1 indicates a NULL column value. No value bytes follow in the NULL case.
-
-      Byten
-      The value of the column, in the format indicated by the associated format code. n is the above length.
+         /*
+    
+		if (PQresultStatus(res) != PGRES_TUPLES_OK)
+		{
+         pgmoneta_log_error("could not send replication command \"%s\": %s", 
+                                            "IDENTIFY_SYSTEM", PQerrorMessage(conn));
+			return false;
+		}
+		if (PQntuples(res) != 1 || PQnfields(res) < 3)
+		{
+         pgmoneta_log_error("could not identify system: got %d rows and %d fields, expected %d rows and %d or more fields", 
+                                            PQntuples(res), PQnfields(res), 1, 3);
+			PQclear(res);
+			return false;
+		}
       */
+
+     /*
+     sys_id = allocate based on size inside 'D'
+      memcpy(sys_id, 'D' message offset, size of string)
+
+      *system_id = sys_id;
+
+      int offset = 0;
+      byte type;
+      int32_t size;
+      int16_t columns;
+      ...
+
+      type = ...read_byte
+      ...
+      size = ...read_int32
+      ...
+      columns = ...read_read16
+     */
    }
 
    pgmoneta_free_message(reply);
@@ -1039,10 +1038,10 @@ error:
 }
 
 int
-pgmoneta_timeline_history(SSL* ssl, int socket, char* query)
+pgmoneta_timeline_history(SSL* ssl, int socket, char* tli)
 {
    int status;
-   int size = 4 + strlen(query) + 1;
+   int size = 1 + 4 + 17 + 4 + 2;
 
    char query_exeu[size];
    struct message msg;
@@ -1053,7 +1052,9 @@ pgmoneta_timeline_history(SSL* ssl, int socket, char* query)
 
    pgmoneta_write_byte(&query_exeu, 'Q');
    pgmoneta_write_int32(&(query_exeu[1]), size - 1);
-   pgmoneta_write_string(&(query_exeu[5]), query);
+   pgmoneta_write_string(&(query_exeu[5]), "TIMELINE_HISTORY ");
+   pgmoneta_write_int32(&(query_exeu[5 + 17]), tli); 
+   pgmoneta_write_string(&(query_exeu[5 + 17 + 4]), ";"); 
 
    msg.kind = 'Q';
    msg.length = size;
@@ -1115,10 +1116,6 @@ pgmoneta_timeline_history(SSL* ssl, int socket, char* query)
 			// 						 PQgetvalue(res, 0, 0),
 			// 						 PQgetvalue(res, 0, 1));
 
-   else if (reply->kind == 'T') //Identifies the message as a row description.
-   {
-
-   } 
    else if (reply->kind == 'D') //Identifies the message as a data row.
    {
 
@@ -1142,7 +1139,7 @@ int
 pgmoneta_start_replication(SSL* ssl, int socket, char* query)
 {
    int status;
-   int size = 4 + strlen(query) + 1;
+   int size = 1 + 4 + strlen(query) + 1;
 
    char query_exeu[size];
    struct message msg;

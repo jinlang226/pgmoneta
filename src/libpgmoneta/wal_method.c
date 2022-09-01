@@ -325,7 +325,6 @@ fsync_fname(const char *fname, bool isdir)
 	{
 		if (errno == EACCES || (isdir && errno == EISDIR))
 			return 0;
-		//pg_log_error("could not open file \"%s\": %m", fname);
         pgmoneta_log_error("could not open file \"%s\": %m", fname);
 		return -1;
 	}
@@ -775,7 +774,6 @@ durable_rename(const char *oldfile, const char *newfile)
 	{
 		if (errno != ENOENT)
 		{
-			//pg_log_error("could not open file \"%s\": %m", newfile);
 			pgmoneta_log_error("could not open file \"%s\": %m", newfile);
 			return -1;
 		}
@@ -795,8 +793,6 @@ durable_rename(const char *oldfile, const char *newfile)
 	/* Time to do the real deal... */
 	if (rename(oldfile, newfile) != 0)
 	{
-		//pg_log_error("could not rename file \"%s\" to \"%s\": %m",
-		//			 oldfile, newfile);
 		pgmoneta_log_error("could not rename file \"%s\" to \"%s\": %m",
 					 oldfile, newfile);
 		return -1;

@@ -441,8 +441,7 @@ pgmoneta_remote_management_scram_sha256(char* username, char* password, int serv
       }
    }
 
-   //where should I define the replication below?
-   status = pgmoneta_create_startup_message(username, "admin", replication, &startup_msg);
+   status = pgmoneta_create_startup_message(username, "admin", REPLICATION_NONE, &startup_msg);
    if (status != MESSAGE_STATUS_OK)
    {
       goto error;

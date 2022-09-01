@@ -262,6 +262,27 @@ pgmoneta_create_ssl_message(struct message** msg);
 int
 pgmoneta_create_startup_message(char* username, char* database, int replication, struct message** msg);
 
+/**
+ * Validate system identifier hasn't changed  
+ * 
+ * @param ssl 
+ * @param socket 
+ * @param system_id 
+ * @param timeline 
+ * @param xlogpos 
+ * @param db 
+ * @return int 
+ */
+int
+pgmoneta_identify_system(SSL* ssl, int socket, char** system_id, int* timeline, char** xlogpos, char** db);
+
+int
+pgmoneta_start_replication(SSL* ssl, int socket, char* query);
+
+int
+pgmoneta_timeline_history(SSL* ssl, int socket, char* tli);
+
+
 #ifdef __cplusplus
 }
 #endif
