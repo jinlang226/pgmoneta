@@ -221,6 +221,16 @@ pgmoneta_read_byte(void* data)
    return (signed char) *((char*)data);
 }
 
+int8_t
+pgmoneta_read_int8(void* data)
+{
+   unsigned char bytes[] = {*((unsigned char*)data)};
+
+   int8_t res = (int8_t)bytes[0];
+
+   return res;
+}
+
 int16_t
 pgmoneta_read_int16(void* data)
 {

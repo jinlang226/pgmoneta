@@ -682,6 +682,7 @@ write_message(int socket, struct message* msg)
    offset = 0;
    totalbytes = 0;
    remaining = msg->length;
+   pgmoneta_log_info("write message remaining: %d", remaining);
 
    do
    {
@@ -689,10 +690,12 @@ write_message(int socket, struct message* msg)
 
       if (likely(numbytes == msg->length))
       {
+         pgmoneta_log_info("numbytes == msg->length"); 
          return MESSAGE_STATUS_OK;
       }
       else if (numbytes != -1)
       {
+         pgmoneta_log_info("numbytes != -1");
          offset += numbytes;
          totalbytes += numbytes;
          remaining -= numbytes;
@@ -708,6 +711,7 @@ write_message(int socket, struct message* msg)
       }
       else
       {
+         pgmoneta_log_info("else in write"); 
          switch (errno)
          {
             case EAGAIN:
@@ -902,8 +906,8 @@ pgmoneta_identify_system(SSL* ssl, int socket, char** system_id, int* timeline, 
    int size = 1 + 4 + 16 + 1;
 
    char* sys_id = NULL;
-   char** x_log_pos = NULL;
-   char** database = NULL;
+   char* x_log_pos = NULL;
+   char* database = NULL;
 
    char query_exeu[size];
    struct message msg;
@@ -915,6 +919,8 @@ pgmoneta_identify_system(SSL* ssl, int socket, char** system_id, int* timeline, 
    pgmoneta_write_byte(&query_exeu, 'Q');
    pgmoneta_write_int32(&(query_exeu[1]), size - 1);
    pgmoneta_write_string(&(query_exeu[5]), "IDENTIFY_SYSTEM;");
+   
+   pgmoneta_log_info("pgmoneta_identify_system: quey_exeu: %c %d %s", query_exeu, query_exeu + 1, query_exeu + 5);
 
    msg.kind = 'Q';
    msg.length = size;
@@ -922,7 +928,10 @@ pgmoneta_identify_system(SSL* ssl, int socket, char** system_id, int* timeline, 
 
    if (ssl == NULL)
    {
+      pgmoneta_log_info("before write message\n");
       status = write_message(socket, &msg);
+      char* errStr = strerror(errno);
+      pgmoneta_log_info("write message %s\n", errStr);
    }
    else
    {
@@ -951,89 +960,118 @@ pgmoneta_identify_system(SSL* ssl, int socket, char** system_id, int* timeline, 
       goto error;
    }
 
-   //wjl print the msg
-   pgmoneta_log_info("wjl printing log message"); 
-   pgmoneta_log_message(reply);
-
+   //message type is T
    int offset = 0;
    signed char msg_type = pgmoneta_read_byte(reply->data + offset);
-   if (msg_type == 'D')
+   pgmoneta_log_info("message_type: %c", msg_type); 
+   if (msg_type == 'T')
    {
-      // int length = 0;
-      offset += 1;
-      int32_t length = pgmoneta_read_int32(reply->data + offset);
-      offset += 4;
-      int16_t num_fields = pgmoneta_read_int16(reply->data + offset);
-      /*
-      String
-      The field name.
+      // offset += 1;
+      // int32_t length = pgmoneta_read_int32(reply->data + offset);
+      // pgmoneta_log_info("length: %d", length); 
 
-      Int32
-      If the field can be identified as a column of a specific table, the object ID of the table; otherwise zero.
+      // offset += 4;
+      // int16_t num_fields = pgmoneta_read_int16(reply->data + offset);
+      // pgmoneta_log_info("num_fields: %d", num_fields); 
 
-      Int16
-      If the field can be identified as a column of a specific table, the attribute number of the column; otherwise zero.
+      // offset += 2;
+      // char field_name = pgmoneta_read_byte(reply->data + offset); 
+      // pgmoneta_log_info("field_name: %c", field_name); 
 
-      Int32
-      The object ID of the field's data type.
+      // for(int i = 0; i < 7; i++) 
+      // {
+      //    offset += 1;
+      //    field_name = pgmoneta_read_byte(reply->data + offset); 
+      //    pgmoneta_log_info("field_name: %c", field_name); 
+      // }
+   }
 
-      Int16
-      The data type size (see pg_type.typlen). Note that negative values denote variable-width types.
-
-      Int32
-      The type modifier (see pg_attribute.atttypmod). The meaning of the modifier is type-specific.
-
-      Int16
-      The format code being used for the field. Currently will be zero (text) or one (binary). In a RowDescription returned from the statement variant of Describe, the format code is not yet known and will always be zero.
-      */
-
-         /*
+   //message type is D
+   offset += 112;
+   msg_type = pgmoneta_read_byte(reply->data + offset); 
     
-		if (PQresultStatus(res) != PGRES_TUPLES_OK)
-		{
-         pgmoneta_log_error("could not send replication command \"%s\": %s", 
-                                            "IDENTIFY_SYSTEM", PQerrorMessage(conn));
-			return false;
-		}
-		if (PQntuples(res) != 1 || PQnfields(res) < 3)
-		{
-         pgmoneta_log_error("could not identify system: got %d rows and %d fields, expected %d rows and %d or more fields", 
-                                            PQntuples(res), PQnfields(res), 1, 3);
-			PQclear(res);
-			return false;
-		}
-      */
+   if(msg_type == 'D') { // DataRow (B)  Byte1('D')
+      pgmoneta_log_info("msg_type: %c", msg_type);  
+      offset += 1;
 
-     /*
-     sys_id = allocate based on size inside 'D'
-      memcpy(sys_id, 'D' message offset, size of string)
+      int32_t message_length = pgmoneta_read_int32(reply->data + offset); //Length of message contents in bytes, including self.
+      pgmoneta_log_info("length: %d", message_length); 
+      offset += 4;
 
-      *system_id = sys_id;
+      int16_t num_column = pgmoneta_read_int16(reply->data + offset); //The number of column values that follow (possibly zero).
+      pgmoneta_log_info("num_column: %d", num_column); 
+      offset += 2;
 
-      int offset = 0;
-      byte type;
-      int32_t size;
-      int16_t columns;
-      ...
+      //Next, the following pair of fields appear for each column:
+      int32_t length = 0;
+      char field_name = ' ';
+      for(int i = 0; i < 4; i++) {
+         //The length of the column value, in bytes (this count does not include itself). 
+         //Can be zero. As a special case, -1 indicates a NULL column value. No value bytes follow in the NULL case.
+         length = pgmoneta_read_int32(reply->data + offset); //Length of message contents in bytes, including self.
+         pgmoneta_log_info("length: %d", length);    
+         offset += 4; 
 
-      type = ...read_byte
-      ...
-      size = ...read_int32
-      ...
-      columns = ...read_read16
-     */
+         if(length == -1)
+         {
+            continue;
+         }
+         
+         if (i == 0) //sysid   
+         {
+            pgmoneta_log_info("sysid");
+            sys_id = (char*)malloc(length + 1);
+            memcpy(sys_id, reply->data + offset, length);
+            pgmoneta_log_info("sys_id: %s", sys_id);  
+            *system_id = sys_id; 
+            offset += length;
+         }
+
+         else if (i == 1) //timeline
+         {
+            pgmoneta_log_info("timeline");
+            timeline = pgmoneta_read_int8(reply->data + offset); 
+            pgmoneta_log_info("timeline: %d", timeline);  
+            // timeline = (char*)malloc(length + 1);
+            // memcpy(timeline, reply->data + offset, length);
+            // pgmoneta_log_info("timeline: %s", timeline);  
+            // *timeline = timeline; 
+            offset += length; 
+         }
+        
+         else if (i == 2) //xlogpos
+         {
+            pgmoneta_log_info("xlogpos");
+            x_log_pos = (char*)malloc(length + 1);
+            memcpy(x_log_pos, reply->data + offset, length); 
+            pgmoneta_log_info("x_log_pos: %s", x_log_pos);  
+            pgmoneta_log_info("1 offset: %d", offset);
+            // *xlogpos = x_log_pos;
+            pgmoneta_log_info("2 offset: %d", offset);
+            offset += length; 
+            pgmoneta_log_info("3 offset: %d", offset);
+         }
+
+         else if (i == 3) //dbname
+         {
+            pgmoneta_log_info("dbname"); 
+            database = (char*)malloc(length + 1);
+            memcpy(database, reply->data + offset, length);  
+            pgmoneta_log_info("database: %s", database);  
+            *db = database;
+            offset += length; 
+         }
+      } 
    }
 
    pgmoneta_free_message(reply);
-
-   return 0;
+   return 0; 
 
 error:
    if (reply)
    {
       pgmoneta_free_message(reply);
    }
-
    return 1;
 }
 
@@ -1052,7 +1090,7 @@ pgmoneta_timeline_history(SSL* ssl, int socket, char* tli)
 
    pgmoneta_write_byte(&query_exeu, 'Q');
    pgmoneta_write_int32(&(query_exeu[1]), size - 1);
-   pgmoneta_write_string(&(query_exeu[5]), "TIMELINE_HISTORY ");
+   pgmoneta_write_string(&(query_exeu[5]), "TIMELINE_HISTORY");
    pgmoneta_write_int32(&(query_exeu[5 + 17]), tli); 
    pgmoneta_write_string(&(query_exeu[5 + 17 + 4]), ";"); 
 

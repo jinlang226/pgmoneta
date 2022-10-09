@@ -1915,7 +1915,7 @@ RunIdentifySystem(PGconn *conn, char **sysid, TimeLineID *starttli,
  * Start the log streaming
  */
 static void
-StreamLog(void)
+StreamLog(int socket)
 {
 	XLogRecPtr	serverpos;
 	TimeLineID	servertli;
@@ -1960,7 +1960,7 @@ StreamLog(void)
 	int *system_id = NULL;
 	int *xlogpos = NULL;
 	int *db = NULL;
-	if(!pgmoneta_identify_system(NULL, &socket, &system_id, stream.timeline, xlogpos, db));
+	if(pgmoneta_identify_system(NULL, socket, &system_id, stream.timeline, xlogpos, db))
 	{
 		pgmoneta_log_error("identify system error");
 		exit(1);	
@@ -2064,29 +2064,6 @@ backup_wal_main(int srv, struct configuration* config, char* d) {
     pgmoneta_log_info("start backup wal main");
 	basedir = "/home/pgmoneta/backup/primary/wal/";
    
-	// struct configuration* config;
-
-   	// config = (struct configuration*)shmem;
-
-   	// config->servers[srv].valid = false;
-	// usr = -1;
-
-	// for (int i = 0; usr == -1 && i < config->number_of_users; i++)
-	// {
-	// 	if (!strcmp(config->servers[srv].username, config->users[i].username))
-	// 	{
-	// 		pgmoneta_log_info("config server username: %s", config->servers[srv].username);
-	// 		pgmoneta_log_info("config user username: %s", config->users[i].username);			
-	// 		usr = i;
-	// 	}
-	// }
-
-	// if (usr == -1)
-	// {
-	// 	goto done;
-	// }
-	
-	// auth = pgmoneta_server_authenticate(srv, "postgres", config->users[usr].username, config->users[usr].password, REPLICATION_PHYSICAL, &socket);
 	auth = pgmoneta_server_authenticate(srv, "postgres", "repl", "secretpassword", REPLICATION_PHYSICAL, &socket);
 
 	if (auth != AUTH_SUCCESS)
@@ -2106,7 +2083,7 @@ backup_wal_main(int srv, struct configuration* config, char* d) {
 
 	while (true)
 	{
-		StreamLog();
+		StreamLog(socket);
 		if (time_to_stop)
 		{
 			exit(0);
